@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>登录 - 家庭记账</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  </head>
+  <body class="login-body">
+    <main class="login-shell">
+      <section class="login-card glass">
+        <div class="brand login-brand">
+          <div class="brand-mark">¥</div>
+          <div>
+            <strong>家庭记账</strong>
+            <span>Family Ledger</span>
+          </div>
+        </div>
+        <div class="login-copy">
+          <p class="eyebrow">Secure Access</p>
+          <h1>登录家庭财务操作台</h1>
+        </div>
+        {% if error %}
+          <div class="alert">{{ error }}</div>
+        {% endif %}
+        <form class="login-form" method="post">
+          <label>用户名<input name="username" autocomplete="username" value="admin" required></label>
+          <label>密码<input name="password" type="password" autocomplete="current-password" placeholder="默认：admin123" required></label>
+          <label>验证码</label>
+          <div class="captcha-row">
+            <input name="captcha" autocomplete="off" placeholder="输入右侧验证码" required>
+            <button class="captcha-btn" type="button" title="刷新验证码">
+              <img id="captchaImage" src="{{ url_for('captcha') }}" alt="验证码">
+            </button>
+          </div>
+          <button class="primary-btn" type="submit">登录</button>
+        </form>
+      </section>
+    </main>
+    <script>
+      const image = document.querySelector("#captchaImage");
+      document.querySelector(".captcha-btn").addEventListener("click", () => {
+        image.src = "/captcha.svg?t=" + Date.now();
+      });
+    </script>
+  </body>
+</html>

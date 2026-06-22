@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="zh-CN" data-page="{{ page }}">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>家庭记账</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar glass">
+        <a class="brand" href="/dashboard">
+          <div class="brand-mark">¥</div>
+          <div>
+            <strong id="brandHouseholdName">家庭名称</strong>
+            <span>Family Ledger</span>
+          </div>
+        </a>
+        <nav>
+          <a data-page="dashboard" href="/dashboard">总览</a>
+          <a data-page="entry" href="/entry">记一笔</a>
+          <a data-page="records" href="/records">流水</a>
+          <a data-page="budget" href="/budget">预算</a>
+          <a data-page="accounts" href="/accounts">账户</a>
+          <a data-page="categories" href="/categories">分类</a>
+          <a data-page="members" href="/members">成员</a>
+          <a data-page="recurring" href="/recurring">周期账单</a>
+          <a data-page="assets" href="/assets">资产负债</a>
+          <a data-page="import-export" href="/import-export">导入导出</a>
+          {% if user_role == "super_admin" %}
+          <a data-page="create-household-account" href="/create-household-account">创建新家庭账号</a>
+          {% endif %}
+        </nav>
+        <div class="sidebar-foot">
+          <span>当前用户</span>
+          <strong>{{ username or "家庭用户" }}</strong>
+          <form class="logout-form" method="post" action="/logout">
+            <button type="submit">退出登录</button>
+          </form>
+        </div>
+      </aside>
+
+      <main>
+        <header class="topbar">
+          <div>
+            <p class="eyebrow" id="pageKicker">Family Finance</p>
+            <h1 id="pageTitle">家庭财务操作台</h1>
+          </div>
+          <div class="month-picker glass">
+            <label for="monthInput">月份</label>
+            <input id="monthInput" type="month">
+          </div>
+        </header>
+
+        <section class="page" data-view="dashboard">
+          <div class="metrics-grid">
+            <article class="metric-card glass">
+              <span>本月收入</span>
+              <strong id="incomeValue">¥0</strong>
+              <small>所有收入合计</small>
+            </article>
+            <article class="metric-card glass">
+              <span>本月支出</span>
+              <strong id="expenseValue">¥0</strong>
+              <small>家庭消费合计</small>
+            </article>
+            <article class="metric-card glass">
+              <span>本月结余</span>
+              <strong id="netValue">¥0</strong>
+              <small>收入减支出</small>
+            </article>
+            <article class="metric-card glass">
+              <span>家庭净资产</span>
+              <strong id="worthValue">¥0</strong>
+              <small>账户与资产合计</small>
+            </article>
+          </div>
+          <div class="content-grid">
+            <article class="panel glass">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Expense Map</p>
+                  <h2>分类支出排行</h2>
+                </div>
+              </div>
+              <div id="categoryBars" class="bar-list"></div>
+            </article>
+            <article class="panel glass">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Members</p>
+                  <h2>成员支出</h2>
+                </div>
+              </div>
+              <div id="memberBars" class="bar-list"></div>
+            </article>
+            <article class="panel glass wide">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Recent</p>
+                  <h2>最近流水</h2>
+                </div>
+              </div>
+              <div class="table-wrap compact">
+                <table>
+                  <tbody id="recentRows"></tbody>
+                </table>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="page" data-view="entry">
+          <article class="panel glass narrow">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Quick Entry</p>
+                <h2>10 秒记一笔</h2>
+              </div>
+            </div>
+            <form id="transactionForm" class="entry-form">
+              <div class="segmented">
+                <label><input type="radio" name="type" value="expense" checked><span>支出</span></label>
+                <label><input type="radio" name="type" value="income"><span>收入</span></label>
+                <label><input type="radio" name="type" value="transfer"><span>转账</span></label>
+              </div>
+              <label>金额<input name="amount" type="number" min="0.01" step="0.01" placeholder="0.00" required></label>
+              <div class="form-row">
+                <label>分类<select name="category_id" id="categorySelect"></select></label>
+                <label>账户<select name="account_id" id="accountSelect"></select></label>
+              </div>
+              <div class="form-row">
+                <label>成员<select name="member_id" id="memberSelect"></select></label>
+                <label>日期<input name="occurred_on" id="dateInput" type="date" required></label>
+              </div>
+              <label id="toAccountWrap" class="hidden">转入账户<select name="to_account_id" id="toAccountSelect"></select></label>
+              <label>备注<input name="note" placeholder="例如：晚餐、水电费、工资"></label>
+              <button class="primary-btn" type="submit">保存记录</button>
+            </form>
+          </article>
+        </section>
+
+        <section class="page" data-view="records">
+          <article class="panel glass">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Search</p>
+                <h2>流水筛选</h2>
+              </div>
+            </div>
+            <form id="filterForm" class="filter-grid">
+              <input name="q" placeholder="搜索备注、分类、账户、成员">
+              <select name="type">
+                <option value="">全部类型</option>
+                <option value="expense">支出</option>
+                <option value="income">收入</option>
+                <option value="transfer">转账</option>
+              </select>
+              <select name="category_id" id="filterCategory"><option value="">全部分类</option></select>
+              <select name="account_id" id="filterAccount"><option value="">全部账户</option></select>
+              <select name="member_id" id="filterMember"><option value="">全部成员</option></select>
+              <input name="start" type="date">
+              <input name="end" type="date">
+              <button type="submit">筛选</button>
+            </form>
+          </article>
+          <article class="panel glass records-panel">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>日期</th>
+                    <th>类型</th>
+                    <th>分类</th>
+                    <th>账户</th>
+                    <th>成员</th>
+                    <th>备注</th>
+                    <th>金额</th>
+                  </tr>
+                </thead>
+                <tbody id="transactionRows"></tbody>
+              </table>
+            </div>
+          </article>
+        </section>
+
+        <section class="page" data-view="budget">
+          <div class="content-grid">
+            <article class="panel glass">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Budget Pulse</p>
+                  <h2>总预算进度</h2>
+                </div>
+                <strong id="budgetLabel">¥0 / ¥0</strong>
+              </div>
+              <div class="budget-ring">
+                <div class="ring" id="budgetRing"><span id="budgetPercent">0%</span></div>
+                <p id="budgetHint">设置预算后可追踪本月支出压力。</p>
+              </div>
+              <form id="budgetForm" class="inline-form">
+                <input name="amount" type="number" min="1" step="1" placeholder="本月总预算" required>
+                <button type="submit">更新</button>
+              </form>
+            </article>
+            <article class="panel glass">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Category Budget</p>
+                  <h2>分类预算</h2>
+                </div>
+              </div>
+              <form id="categoryBudgetForm" class="inline-form">
+                <select name="category_id" id="budgetCategory"></select>
+                <input name="amount" type="number" min="1" step="1" placeholder="预算金额" required>
+                <button type="submit">保存</button>
+              </form>
+              <div id="budgetList" class="simple-list"></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="page" data-view="accounts">
+          <article class="panel glass">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Accounts</p>
+                <h2>账户余额</h2>
+              </div>
+            </div>
+            <div id="accountList" class="account-list"></div>
+            <form id="accountForm" class="inline-form roomy">
+              <input name="name" placeholder="新账户名称" required>
+              <select name="type">
+                <option value="wallet">电子钱包</option>
+                <option value="debit">银行卡</option>
+                <option value="credit">信用卡</option>
+                <option value="cash">现金</option>
+              </select>
+              <input name="balance" type="number" step="0.01" placeholder="初始余额">
+              <input name="color" type="color" value="#38bdf8">
+              <button type="submit">添加账户</button>
+            </form>
+          </article>
+        </section>
+
+        <section class="page" data-view="categories">
+          <div class="content-grid">
+            <article class="panel glass">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Categories</p>
+                  <h2>分类管理</h2>
+                </div>
+              </div>
+              <div id="categoryList" class="simple-list"></div>
+              <form id="categoryForm" class="inline-form roomy">
+                <input name="name" placeholder="分类名称" required>
+                <select name="type">
+                  <option value="expense">支出</option>
+                  <option value="income">收入</option>
+                </select>
+                <input name="color" type="color" value="#38bdf8">
+                <button type="submit">添加分类</button>
+              </form>
+            </article>
+          </div>
+        </section>
+
+        <section class="page" data-view="members">
+          <div class="management-stack">
+            <article class="panel glass wide">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Household</p>
+                  <h2>家庭设置</h2>
+                </div>
+              </div>
+              <form id="householdNameForm" class="inline-form">
+                <input name="name" id="householdNameInput" placeholder="家庭名称" required>
+                <button type="submit">保存名称</button>
+              </form>
+            </article>
+            <div class="management-grid">
+            <article class="panel glass">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Members</p>
+                  <h2>添加成员</h2>
+                </div>
+              </div>
+              <form id="memberForm" class="inline-form">
+                <input name="name" placeholder="成员名称" required>
+                <select name="role">
+                  <option value="成员">成员</option>
+                  <option value="管理员">管理员</option>
+                  <option value="只读">只读</option>
+                </select>
+                <button type="submit">添加成员</button>
+              </form>
+            </article>
+            <article class="panel glass">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Created</p>
+                  <h2>已创建成员</h2>
+                </div>
+              </div>
+              <div id="memberList" class="simple-list managed-list"></div>
+            </article>
+            </div>
+            <div class="management-grid">
+            <article class="panel glass">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Login Accounts</p>
+                  <h2>创建成员账号</h2>
+                </div>
+              </div>
+              <form id="memberAccountForm" class="inline-form roomy">
+                <select name="member_id" id="accountMemberSelect"></select>
+                <input name="username" placeholder="登录用户名" autocomplete="off" required>
+                <input name="password" type="password" placeholder="至少 6 位密码" autocomplete="new-password" required>
+                <select name="role">
+                  <option value="editor">可记账成员</option>
+                  <option value="viewer">只读成员</option>
+                  <option value="household_admin">家庭管理员</option>
+                </select>
+                <button type="submit">创建账号</button>
+              </form>
+            </article>
+            <article class="panel glass">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Created Accounts</p>
+                  <h2>已创建账号</h2>
+                </div>
+              </div>
+              <div id="userList" class="simple-list managed-list"></div>
+            </article>
+            </div>
+          </div>
+        </section>
+
+        <section class="page" data-view="create-household-account">
+          <div class="content-grid">
+            <article class="panel glass wide">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Households</p>
+                  <h2>创建新家庭账号</h2>
+                </div>
+              </div>
+              <form id="householdForm" class="inline-form roomy">
+                <input name="name" placeholder="家庭名称" required>
+                <input name="member_name" placeholder="家庭管理员成员名" required>
+                <input name="username" placeholder="家庭管理员登录用户名" autocomplete="off" required>
+                <input name="password" type="password" placeholder="至少 6 位密码" autocomplete="new-password" required>
+                <button type="submit">创建家庭管理员账号</button>
+              </form>
+              <div id="householdAdminList" class="simple-list managed-list section-list"></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="page" data-view="recurring">
+          <article class="panel glass">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Recurring</p>
+                <h2>周期账单</h2>
+              </div>
+            </div>
+            <div id="recurringList" class="simple-list"></div>
+            <form id="recurringForm" class="entry-form">
+              <div class="form-row">
+                <label>名称<input name="name" placeholder="房租、保险、会员费" required></label>
+                <label>金额<input name="amount" type="number" min="0.01" step="0.01" required></label>
+              </div>
+              <div class="form-row">
+                <label>类型<select name="type" id="recurringType"><option value="expense">支出</option><option value="income">收入</option></select></label>
+                <label>每月日期<input name="day_of_month" type="number" min="1" max="28" value="1"></label>
+              </div>
+              <div class="form-row">
+                <label>分类<select name="category_id" id="recurringCategory"></select></label>
+                <label>账户<select name="account_id" id="recurringAccount"></select></label>
+              </div>
+              <div class="form-row">
+                <label>成员<select name="member_id" id="recurringMember"></select></label>
+                <label>备注<input name="note" placeholder="自动生成时带入流水备注"></label>
+              </div>
+              <button class="primary-btn" type="submit">添加周期账单</button>
+            </form>
+          </article>
+        </section>
+
+        <section class="page" data-view="assets">
+          <div class="metrics-grid">
+            <article class="metric-card glass">
+              <span>金融资产</span>
+              <strong id="assetValue">¥0</strong>
+              <small>资产条目合计</small>
+            </article>
+            <article class="metric-card glass">
+              <span>负债</span>
+              <strong id="liabilityValue">¥0</strong>
+              <small>贷款和待还款</small>
+            </article>
+            <article class="metric-card glass">
+              <span>账户余额</span>
+              <strong id="accountTotalValue">¥0</strong>
+              <small>现金、卡和钱包</small>
+            </article>
+            <article class="metric-card glass">
+              <span>净资产</span>
+              <strong id="assetNetValue">¥0</strong>
+              <small>账户 + 资产 - 负债</small>
+            </article>
+          </div>
+          <article class="panel glass">
+            <div id="assetList" class="simple-list"></div>
+            <form id="assetForm" class="inline-form roomy">
+              <input name="name" placeholder="资产或负债名称" required>
+              <select name="type"><option value="asset">资产</option><option value="liability">负债</option></select>
+              <input name="amount" type="number" step="0.01" placeholder="金额" required>
+              <input name="note" placeholder="备注">
+              <button type="submit">添加</button>
+            </form>
+          </article>
+        </section>
+
+        <section class="page" data-view="import-export">
+          <div class="content-grid">
+            <article class="panel glass">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Export</p>
+                  <h2>导出流水 CSV</h2>
+                </div>
+              </div>
+              <a class="download-btn" href="/api/export/transactions.csv">下载流水 CSV</a>
+            </article>
+            <article class="panel glass">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Import</p>
+                  <h2>导入 CSV 文本</h2>
+                </div>
+              </div>
+              <form id="importForm" class="entry-form">
+                <textarea name="csv" rows="10" placeholder="date,type,amount,category,account,member,note"></textarea>
+                <button class="primary-btn" type="submit">导入流水</button>
+              </form>
+            </article>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div id="toast" class="toast"></div>
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+  </body>
+</html>

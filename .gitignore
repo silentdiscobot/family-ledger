@@ -1,0 +1,5 @@
+__pycache__/
+*.py[cod]
+.venv/
+family_ledger.db
+.DS_Store
