@@ -12,4 +12,5 @@ python app.py
 ```
 
 打开 `http://127.0.0.1:5050`。
-
+默认账号：admin
+        admin123
