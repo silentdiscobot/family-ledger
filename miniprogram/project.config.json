@@ -1,0 +1,11 @@
+{
+  "appid": "touristappid",
+  "projectname": "family-ledger",
+  "miniprogramRoot": "./",
+  "setting": {
+    "urlCheck": false,
+    "es6": true,
+    "postcss": true,
+    "minified": true
+  }
+}

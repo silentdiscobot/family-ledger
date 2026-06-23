@@ -1,0 +1,10 @@
+<view class="page login-page">
+  <view class="login-card glass">
+    <view class="brand-mark">¥</view>
+    <view class="eyebrow">Family Ledger</view>
+    <view class="title">登录家庭记账</view>
+    <view class="field"><text>用户名</text><input value="{{username}}" data-field="username" bindinput="onInput" /></view>
+    <view class="field"><text>密码</text><input value="{{password}}" data-field="password" bindinput="onInput" password /></view>
+    <button bindtap="login" loading="{{loading}}">登录</button>
+  </view>
+</view>

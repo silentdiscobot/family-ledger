@@ -1,0 +1,55 @@
+<view class="page">
+  <view class="title">设置</view>
+  <scroll-view scroll-x="true" class="module-tabs glass">
+    <view class="{{active === 'budget' ? 'active' : ''}}" data-tab="budget" bindtap="setTab">预算</view>
+    <view class="{{active === 'categories' ? 'active' : ''}}" data-tab="categories" bindtap="setTab">分类</view>
+    <view class="{{active === 'members' ? 'active' : ''}}" data-tab="members" bindtap="setTab">成员</view>
+    <view class="{{active === 'recurring' ? 'active' : ''}}" data-tab="recurring" bindtap="setTab">周期账单</view>
+    <view class="{{active === 'assets' ? 'active' : ''}}" data-tab="assets" bindtap="setTab">资产负债</view>
+    <view class="{{active === 'accounts' ? 'active' : ''}}" data-tab="accounts" bindtap="setTab">账户</view>
+  </scroll-view>
+
+  <view wx:if="{{active === 'budget'}}" class="panel">
+    <view class="section-title">预算</view>
+    <view class="field"><text>总预算</text><input type="digit" value="{{budgetAmount}}" data-field="budgetAmount" bindinput="onInput" /></view>
+    <button bindtap="saveBudget">保存预算</button>
+  </view>
+
+  <view wx:elif="{{active === 'categories'}}" class="panel">
+    <view class="section-title">分类</view>
+    <view wx:for="{{categories}}" wx:key="id" class="card-row"><text>{{item.name}}</text><text class="muted">{{item.typeText}}</text></view>
+    <view class="field"><text>分类名称</text><input value="{{categoryName}}" data-field="categoryName" bindinput="onInput" /></view>
+    <button bindtap="saveCategory">添加分类</button>
+  </view>
+
+  <view wx:elif="{{active === 'members'}}" class="panel">
+    <view class="section-title">成员</view>
+    <view wx:for="{{members}}" wx:key="id" class="card-row"><text>{{item.name}}</text><text class="muted">{{item.role}}</text></view>
+    <view class="field"><text>成员名称</text><input value="{{memberName}}" data-field="memberName" bindinput="onInput" /></view>
+    <button bindtap="saveMember">添加成员</button>
+  </view>
+
+  <view wx:elif="{{active === 'recurring'}}" class="panel">
+    <view class="section-title">周期账单</view>
+    <view wx:for="{{recurring}}" wx:key="id" class="card-row"><view><view>{{item.name}}</view><view class="muted">每月 {{item.day_of_month}} 日</view></view><text>{{item.amountText}}</text></view>
+    <view class="field"><text>名称</text><input value="{{recurringName}}" data-field="recurringName" bindinput="onInput" /></view>
+    <view class="field"><text>金额</text><input type="digit" value="{{recurringAmount}}" data-field="recurringAmount" bindinput="onInput" /></view>
+    <button bindtap="saveRecurring">添加周期账单</button>
+  </view>
+
+  <view wx:elif="{{active === 'assets'}}" class="panel">
+    <view class="section-title">资产负债</view>
+    <view wx:for="{{assets}}" wx:key="id" class="card-row"><text>{{item.name}}</text><text>{{item.amountText}}</text></view>
+    <view class="field"><text>名称</text><input value="{{assetName}}" data-field="assetName" bindinput="onInput" /></view>
+    <view class="field"><text>金额</text><input type="digit" value="{{assetAmount}}" data-field="assetAmount" bindinput="onInput" /></view>
+    <button bindtap="saveAsset">添加资产</button>
+  </view>
+
+  <view wx:else class="panel">
+    <view class="section-title">账户</view>
+    <view wx:for="{{accounts}}" wx:key="id" class="card-row"><text>{{item.name}}</text><text>{{item.balanceText}}</text></view>
+    <view class="field"><text>账户名称</text><input value="{{accountName}}" data-field="accountName" bindinput="onInput" /></view>
+    <view class="field"><text>初始余额</text><input type="digit" value="{{accountBalance}}" data-field="accountBalance" bindinput="onInput" /></view>
+    <button bindtap="saveAccount">添加账户</button>
+  </view>
+</view>

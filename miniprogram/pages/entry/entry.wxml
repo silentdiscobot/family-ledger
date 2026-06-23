@@ -1,0 +1,13 @@
+<view class="page">
+  <view class="title">记一笔</view>
+  <view class="panel"><view class="section-title">文字记账</view><textarea value="{{quickText}}" data-field="quickText" bindinput="onInput" placeholder="例如：支付宝早饭4.5"></textarea><button bindtap="saveText">识别并记录</button></view>
+  <view class="panel">
+    <view class="section-title">手动记账</view>
+    <view class="field"><text>金额</text><input type="digit" value="{{amount}}" data-field="amount" bindinput="onInput" /></view>
+    <view class="field"><text>分类</text><picker range="{{categoryNames}}" value="{{categoryIndex}}" bindchange="setCategory"><view>{{categoryNames[categoryIndex] || '选择分类'}}</view></picker></view>
+    <view class="field"><text>账户</text><picker range="{{accountNames}}" value="{{accountIndex}}" bindchange="setAccount"><view>{{accountNames[accountIndex] || '选择账户'}}</view></picker></view>
+    <view class="field"><text>成员</text><picker range="{{memberNames}}" value="{{memberIndex}}" bindchange="setMember"><view>{{memberNames[memberIndex] || '选择成员'}}</view></picker></view>
+    <view class="field"><text>备注</text><input value="{{note}}" data-field="note" bindinput="onInput" /></view>
+    <button bindtap="saveManual">保存</button>
+  </view>
+</view>

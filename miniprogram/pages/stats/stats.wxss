@@ -1,0 +1,48 @@
+.module-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8rpx;
+  margin-bottom: 24rpx;
+  padding: 8rpx;
+}
+
+.module-tabs view {
+  display: grid;
+  place-items: center;
+  min-height: 72rpx;
+  border-radius: 20rpx;
+  color: #5f7895;
+  font-weight: 900;
+}
+
+.module-tabs .active {
+  color: #fff;
+  background: linear-gradient(135deg, #38bdf8, #5eead4);
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 18rpx;
+  margin-bottom: 24rpx;
+}
+
+.metric {
+  padding: 26rpx;
+}
+
+.metric text:first-child {
+  color: #5f7895;
+  font-size: 24rpx;
+}
+
+.metric-value {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 34rpx;
+  font-weight: 900;
+}
+
+textarea {
+  margin-bottom: 18rpx;
+}

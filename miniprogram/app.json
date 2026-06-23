@@ -1,0 +1,25 @@
+{
+  "pages": [
+    "pages/login/login",
+    "pages/stats/stats",
+    "pages/entry/entry",
+    "pages/settings/settings"
+  ],
+  "window": {
+    "navigationBarTitleText": "家庭记账",
+    "navigationBarBackgroundColor": "#e7f7ff",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f8fdff"
+  },
+  "tabBar": {
+    "color": "#5f7895",
+    "selectedColor": "#1d7fb8",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "white",
+    "list": [
+      { "pagePath": "pages/stats/stats", "text": "统计" },
+      { "pagePath": "pages/entry/entry", "text": "记一笔" },
+      { "pagePath": "pages/settings/settings", "text": "设置" }
+    ]
+  }
+}

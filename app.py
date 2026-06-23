@@ -364,7 +364,25 @@ def forbidden(message: str = "forbidden"):
 
 
 def is_open_endpoint() -> bool:
-    return request.endpoint in {"login", "captcha", "static"}
+    return request.endpoint in {"login", "api_login", "captcha", "static"}
+
+
+def is_mobile_request() -> bool:
+    if request.args.get("desktop") == "1":
+        return False
+    user_agent = request.headers.get("User-Agent", "").lower()
+    mobile_marks = ("iphone", "android", "mobile", "micromessenger", "ipad", "ipod")
+    return any(mark in user_agent for mark in mobile_marks)
+
+
+def set_login_session(user: dict) -> None:
+    session.clear()
+    session["user_id"] = user["id"]
+    session["username"] = user["username"]
+    session["display_name"] = user["display_name"]
+    session["member_id"] = user["member_id"]
+    session["household_id"] = user["household_id"] or 1
+    session["role"] = user["role"]
 
 
 @app.before_request
@@ -470,10 +488,35 @@ def captcha():
     return Response(svg, mimetype="image/svg+xml", headers={"Cache-Control": "no-store, max-age=0"})
 
 
+@app.route("/api/login", methods=["POST"])
+def api_login():
+    data = request.get_json(force=True)
+    username = (data.get("username") or "").strip()
+    password = data.get("password") or ""
+    user = one("SELECT * FROM users WHERE username = ?", (username,))
+    if not user or not check_password_hash(user["password_hash"], password):
+        return jsonify({"error": "invalid credentials"}), 401
+    set_login_session(user)
+    return jsonify(
+        {
+            "id": user["id"],
+            "username": user["username"],
+            "display_name": user["display_name"],
+            "role": user["role"],
+        }
+    )
+
+
 @app.route("/logout", methods=["POST"])
 def logout():
     session.clear()
     return redirect(url_for("login"))
+
+
+@app.route("/api/logout", methods=["POST"])
+def api_logout():
+    session.clear()
+    return jsonify({"ok": True})
 
 
 @app.route("/")
@@ -484,12 +527,19 @@ def index(page: str = "dashboard"):
         page = "categories"
     if page == "create-household-account" and not is_super_admin():
         page = "dashboard"
+    if is_mobile_request():
+        return render_template("mobile.html", username=session.get("display_name"))
     return render_template(
         "index.html",
         page=page if page in allowed else "dashboard",
         username=session.get("display_name"),
         user_role=current_role(),
     )
+
+
+@app.route("/mobile")
+def mobile():
+    return render_template("mobile.html", username=session.get("display_name"))
 
 
 @app.route("/api/bootstrap")

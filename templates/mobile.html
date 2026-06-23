@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>家庭记账手机版</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='mobile.css') }}">
+  </head>
+  <body>
+    <main class="mobile-shell">
+      <header class="mobile-header">
+        <div>
+          <p id="mobileHousehold">家庭名称</p>
+          <h1 id="mobileTitle">统计</h1>
+        </div>
+        <form method="post" action="/logout">
+          <button type="submit">退出</button>
+        </form>
+      </header>
+
+      <section class="module active" data-module="stats">
+        <nav class="subtabs">
+          <button class="active" data-subtab="overview" type="button">总览</button>
+          <button data-subtab="records" type="button">流水</button>
+          <button data-subtab="import" type="button">导入导出</button>
+        </nav>
+
+        <div class="subview active" data-subview="overview">
+          <div class="metric-grid">
+            <article><span>收入</span><strong id="mIncome">¥0</strong></article>
+            <article><span>支出</span><strong id="mExpense">¥0</strong></article>
+            <article><span>结余</span><strong id="mNet">¥0</strong></article>
+            <article><span>净资产</span><strong id="mWorth">¥0</strong></article>
+          </div>
+          <article class="panel">
+            <h2>支出比例</h2>
+            <div id="mPie" class="pie"><span>0%</span></div>
+            <div id="mLegend" class="legend"></div>
+          </article>
+          <article class="panel">
+            <h2>分类支出排行</h2>
+            <div id="mCategoryBars" class="bar-list"></div>
+          </article>
+          <article class="panel">
+            <h2>成员支出</h2>
+            <div id="mMemberBars" class="bar-list"></div>
+          </article>
+          <article class="panel">
+            <h2>最近流水</h2>
+            <div id="mRecent" class="list"></div>
+          </article>
+        </div>
+
+        <div class="subview" data-subview="records">
+          <article class="panel">
+            <h2>流水筛选</h2>
+            <form id="mFilterForm" class="stack-form">
+              <input name="q" placeholder="搜索备注、分类、账户、成员">
+              <select name="type">
+                <option value="">全部类型</option>
+                <option value="expense">支出</option>
+                <option value="income">收入</option>
+                <option value="transfer">转账</option>
+              </select>
+              <select name="category_id" id="mFilterCategory"><option value="">全部分类</option></select>
+              <select name="account_id" id="mFilterAccount"><option value="">全部账户</option></select>
+              <select name="member_id" id="mFilterMember"><option value="">全部成员</option></select>
+              <input name="start" type="date">
+              <input name="end" type="date">
+              <button type="submit">筛选</button>
+            </form>
+          </article>
+          <article class="panel">
+            <h2>流水</h2>
+            <div id="mRecords" class="list"></div>
+          </article>
+        </div>
+
+        <div class="subview" data-subview="import">
+          <article class="panel">
+            <h2>导出流水</h2>
+            <a class="primary-link" href="/api/export/transactions.csv">下载 CSV</a>
+          </article>
+          <article class="panel">
+            <h2>导入 CSV 文本</h2>
+            <form id="mImportForm" class="stack-form">
+              <textarea name="csv" rows="8" placeholder="date,type,amount,category,account,member,note"></textarea>
+              <button type="submit">导入</button>
+            </form>
+          </article>
+        </div>
+      </section>
+
+      <section class="module" data-module="entry">
+        <article class="panel">
+          <h2>文字记账</h2>
+          <form id="mTextEntryForm" class="stack-form">
+            <textarea name="text" rows="3" placeholder="例如：支付宝早饭4.5、地铁6、打球60"></textarea>
+            <button type="submit">识别并记录</button>
+          </form>
+        </article>
+        <article class="panel">
+          <h2>记一笔</h2>
+          <form id="mTransactionForm" class="stack-form">
+            <div class="segmented">
+              <label><input type="radio" name="type" value="expense" checked><span>支出</span></label>
+              <label><input type="radio" name="type" value="income"><span>收入</span></label>
+              <label><input type="radio" name="type" value="transfer"><span>转账</span></label>
+            </div>
+            <input name="amount" type="number" step="0.01" placeholder="金额" required>
+            <select name="category_id" id="mCategorySelect"></select>
+            <select name="account_id" id="mAccountSelect"></select>
+            <select name="to_account_id" id="mToAccountSelect" class="hidden"></select>
+            <select name="member_id" id="mMemberSelect"></select>
+            <input name="occurred_on" id="mDateInput" type="date" required>
+            <input name="note" placeholder="备注">
+            <button type="submit">保存</button>
+          </form>
+        </article>
+      </section>
+
+      <section class="module" data-module="settings">
+        <nav class="subtabs scroll-tabs">
+          <button class="active" data-subtab="budget" type="button">预算</button>
+          <button data-subtab="categories" type="button">分类</button>
+          <button data-subtab="members" type="button">成员</button>
+          <button data-subtab="recurring" type="button">周期账单</button>
+          <button data-subtab="assets" type="button">资产负债</button>
+          <button data-subtab="accounts" type="button">账户</button>
+        </nav>
+
+        <div class="subview active" data-subview="budget">
+          <article class="panel">
+            <h2>本月预算</h2>
+            <div class="budget-ring-mobile">
+              <div id="mBudgetRing" class="ring-mobile"><span id="mBudgetPercent">0%</span></div>
+              <p id="mBudgetHint" class="muted">设置预算后可追踪本月支出压力。</p>
+            </div>
+            <div class="section-block list-block">
+              <h3>已创建预算</h3>
+              <div id="mBudgetList" class="list"></div>
+            </div>
+            <div class="section-block form-block">
+              <h3>更新总预算</h3>
+              <form id="mBudgetForm" class="stack-form">
+                <input name="amount" type="number" placeholder="总预算" required>
+                <button type="submit">保存预算</button>
+              </form>
+            </div>
+            <div class="section-block form-block">
+              <h3>新增或更新分类预算</h3>
+              <form id="mCategoryBudgetForm" class="stack-form">
+                <select name="category_id" id="mBudgetCategory"></select>
+                <input name="amount" type="number" placeholder="分类预算" required>
+                <button type="submit">保存分类预算</button>
+              </form>
+            </div>
+          </article>
+        </div>
+        <div class="subview" data-subview="categories">
+          <article class="panel">
+            <h2>分类</h2>
+            <div class="section-block list-block">
+              <h3>已创建分类</h3>
+              <div id="mCategoryList" class="list"></div>
+            </div>
+            <div class="section-block form-block">
+              <h3>新增分类</h3>
+              <form id="mCategoryForm" class="stack-form">
+                <input name="name" placeholder="分类名称" required>
+                <select name="type"><option value="expense">支出</option><option value="income">收入</option></select>
+                <button type="submit">添加分类</button>
+              </form>
+            </div>
+          </article>
+        </div>
+        <div class="subview" data-subview="members">
+          <article class="panel">
+            <h2>家庭设置</h2>
+            <div class="section-block form-block">
+              <h3>修改家庭名称</h3>
+              <form id="mHouseholdNameForm" class="stack-form">
+                <input name="name" id="mHouseholdNameInput" placeholder="家庭名称" required>
+                <button type="submit">保存名称</button>
+              </form>
+            </div>
+          </article>
+          <article class="panel">
+            <h2>成员</h2>
+            <div class="section-block list-block">
+              <h3>已创建成员</h3>
+              <div id="mMemberList" class="list"></div>
+            </div>
+            <div class="section-block form-block">
+              <h3>新增成员</h3>
+              <form id="mMemberForm" class="stack-form">
+                <input name="name" placeholder="成员名称" required>
+                <select name="role">
+                  <option value="成员">成员</option>
+                  <option value="管理员">管理员</option>
+                  <option value="只读">只读</option>
+                </select>
+                <button type="submit">添加成员</button>
+              </form>
+            </div>
+          </article>
+          <article class="panel">
+            <h2>成员登录账号</h2>
+            <div class="section-block list-block">
+              <h3>已创建账号</h3>
+              <div id="mUserList" class="list"></div>
+            </div>
+            <div class="section-block form-block">
+              <h3>新增登录账号</h3>
+              <form id="mMemberAccountForm" class="stack-form">
+                <select name="member_id" id="mAccountMemberSelect"></select>
+                <input name="username" placeholder="登录用户名" autocomplete="off" required>
+                <input name="password" type="password" placeholder="至少 6 位密码" required>
+                <select name="role">
+                  <option value="editor">可记账成员</option>
+                  <option value="viewer">只读成员</option>
+                  <option value="household_admin">家庭管理员</option>
+                </select>
+                <button type="submit">创建账号</button>
+              </form>
+            </div>
+          </article>
+        </div>
+        <div class="subview" data-subview="recurring">
+          <article class="panel">
+            <h2>周期账单</h2>
+            <div class="section-block list-block">
+              <h3>已创建周期账单</h3>
+              <div id="mRecurringList" class="list"></div>
+            </div>
+            <div class="section-block form-block">
+              <h3>新增周期账单</h3>
+              <form id="mRecurringForm" class="stack-form">
+                <input name="name" placeholder="名称" required>
+                <input name="amount" type="number" step="0.01" placeholder="金额" required>
+                <select name="type" id="mRecurringType"><option value="expense">支出</option><option value="income">收入</option></select>
+                <input name="day_of_month" type="number" min="1" max="28" value="1" placeholder="每月日期">
+                <select name="category_id" id="mRecurringCategory"></select>
+                <select name="account_id" id="mRecurringAccount"></select>
+                <select name="to_account_id" id="mRecurringToAccount"></select>
+                <select name="member_id" id="mRecurringMember"></select>
+                <input name="note" placeholder="备注">
+                <button type="submit">添加周期账单</button>
+              </form>
+            </div>
+          </article>
+        </div>
+        <div class="subview" data-subview="assets">
+          <article class="panel">
+            <h2>资产负债</h2>
+            <div class="metric-grid">
+              <article><span>金融资产</span><strong id="mAssetValue">¥0</strong></article>
+              <article><span>负债</span><strong id="mLiabilityValue">¥0</strong></article>
+              <article><span>账户余额</span><strong id="mAccountTotalValue">¥0</strong></article>
+              <article><span>净资产</span><strong id="mAssetNetValue">¥0</strong></article>
+            </div>
+            <div class="section-block list-block">
+              <h3>已创建资产负债</h3>
+              <div id="mAssetList" class="list"></div>
+            </div>
+            <div class="section-block form-block">
+              <h3>新增资产或负债</h3>
+              <form id="mAssetForm" class="stack-form">
+                <input name="name" placeholder="名称" required>
+                <select name="type"><option value="asset">资产</option><option value="liability">负债</option></select>
+                <input name="amount" type="number" step="0.01" placeholder="金额" required>
+                <input name="note" placeholder="备注">
+                <button type="submit">添加</button>
+              </form>
+            </div>
+          </article>
+        </div>
+        <div class="subview" data-subview="accounts">
+          <article class="panel">
+            <h2>账户</h2>
+            <div class="section-block list-block">
+              <h3>已创建账户</h3>
+              <div id="mAccountList" class="list"></div>
+            </div>
+            <div class="section-block form-block">
+              <h3>新增账户</h3>
+              <form id="mAccountForm" class="stack-form">
+                <input name="name" placeholder="账户名称" required>
+                <select name="type">
+                  <option value="wallet">电子钱包</option>
+                  <option value="debit">银行卡</option>
+                  <option value="credit">信用卡</option>
+                  <option value="cash">现金</option>
+                </select>
+                <input name="balance" type="number" step="0.01" placeholder="初始余额">
+                <button type="submit">添加账户</button>
+              </form>
+            </div>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <nav class="bottom-tabs">
+      <button class="active" data-module-target="stats" type="button">统计</button>
+      <button data-module-target="entry" type="button">记一笔</button>
+      <button data-module-target="settings" type="button">设置</button>
+    </nav>
+    <div id="mobileToast" class="mobile-toast"></div>
+    <script src="{{ url_for('static', filename='mobile.js') }}"></script>
+  </body>
+</html>
