@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>超级管理员 - 家庭记账</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  </head>
+  <body>
+    <div class="app-shell admin-shell">
+      <aside class="sidebar glass">
+        <a class="brand" href="/admin">
+          <div class="brand-mark">¥</div>
+          <div>
+            <strong>超级管理员</strong>
+            <span>Family Ledger Admin</span>
+          </div>
+        </a>
+        <nav>
+          <a class="active" href="/admin">创建新家庭账号</a>
+          <a href="/login">家庭登录入口</a>
+        </nav>
+        <div class="sidebar-foot">
+          <span>用户名称</span>
+          <strong>{{ username or "超级管理员" }}</strong>
+          <form class="logout-form" method="post" action="/adminlogout">
+            <button type="submit">退出登录</button>
+          </form>
+        </div>
+      </aside>
+
+      <main>
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Super Admin</p>
+            <h1>超级管理员界面</h1>
+          </div>
+        </header>
+
+        <section class="page active">
+          <div class="content-grid">
+            <article class="panel glass wide">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Households</p>
+                  <h2>创建新家庭账号</h2>
+                </div>
+              </div>
+              <form id="householdForm" class="inline-form roomy">
+                <input name="name" placeholder="家庭名称" required>
+                <input name="member_name" placeholder="家庭管理员成员名" required>
+                <input name="display_name" placeholder="用户名称（中文）" autocomplete="off" pattern="[\u4e00-\u9fff]{2,12}" required>
+                <input name="username" placeholder="登录用户名（英文字母）" autocomplete="off" pattern="[A-Za-z]{3,24}" required>
+                <input name="password" type="password" placeholder="至少 6 位密码" autocomplete="new-password" required>
+                <button type="submit">创建家庭管理员账号</button>
+              </form>
+            </article>
+            <article class="panel glass wide">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Created</p>
+                  <h2>已创建家庭管理员账号</h2>
+                </div>
+              </div>
+              <div id="householdAdminList" class="simple-list managed-list section-list"></div>
+            </article>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div id="toast" class="toast"></div>
+    <script src="{{ url_for('static', filename='admin.js') }}"></script>
+  </body>
+</html>

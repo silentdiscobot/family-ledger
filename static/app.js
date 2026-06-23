@@ -1,4 +1,8 @@
 const page = document.documentElement.dataset.page || "dashboard";
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) window.location.reload();
+});
+
 const state = {
   accounts: [],
   categories: [],
@@ -7,7 +11,6 @@ const state = {
   recurring: [],
   assets: [],
   users: [],
-  householdAdmins: [],
   currentUser: null,
   summary: null,
   transactions: [],
@@ -27,7 +30,6 @@ const titles = {
   accounts: ["Accounts", "账户管理"],
   categories: ["Categories", "分类管理"],
   members: ["Members", "家庭成员"],
-  "create-household-account": ["Super Admin", "创建新家庭账号"],
   recurring: ["Recurring", "周期账单"],
   assets: ["Balance Sheet", "资产负债"],
   "import-export": ["Data", "导入导出"],
@@ -107,6 +109,43 @@ function renderBarList(selector, rows, labelKey, valueKey, colorKey = "color") {
       .join("") || '<p class="muted">暂无数据。</p>';
 }
 
+function renderExpensePie() {
+  const pie = $("#expensePie");
+  const legend = $("#expenseLegend");
+  if (!pie || !legend || !state.summary) return;
+  const rows = state.summary.categoryTotals
+    .filter((row) => row.type === "expense" && row.total > 0)
+    .slice(0, 6);
+  const total = rows.reduce((sum, row) => sum + row.total, 0);
+  if (!total) {
+    pie.style.background = "conic-gradient(rgba(204, 235, 252, 0.9) 0deg 360deg)";
+    pie.innerHTML = "<span>0%</span>";
+    legend.innerHTML = '<p class="muted">暂无支出数据。</p>';
+    return;
+  }
+  let cursor = 0;
+  const segments = rows.map((row) => {
+    const start = cursor;
+    const degrees = (row.total / total) * 360;
+    cursor += degrees;
+    return `${row.color || "#38bdf8"} ${start}deg ${cursor}deg`;
+  });
+  pie.style.background = `conic-gradient(${segments.join(", ")})`;
+  const top = rows[0];
+  pie.innerHTML = `<span>${Math.round((top.total / total) * 100)}%</span>`;
+  legend.innerHTML = rows
+    .map(
+      (row) => `
+        <div class="legend-item">
+          <i style="background:${row.color || "#38bdf8"}"></i>
+          <span>${row.category}</span>
+          <strong>${Math.round((row.total / total) * 100)}%</strong>
+        </div>
+      `,
+    )
+    .join("");
+}
+
 function transactionRows(items) {
   return items
     .map((item) => {
@@ -135,6 +174,7 @@ function renderDashboard() {
   $("#netValue").textContent = money.format(state.summary.net);
   $("#worthValue").textContent = money.format(state.summary.netWorth);
   renderBarList("#categoryBars", state.summary.categoryTotals.filter((row) => row.type === "expense"), "category", "total");
+  renderExpensePie();
   renderBarList("#memberBars", state.summary.memberTotals.map((row) => ({ ...row, color: "#5eead4" })), "name", "expense");
   if ($("#recentRows")) {
     $("#recentRows").innerHTML = transactionRows(state.summary.recent);
@@ -245,20 +285,6 @@ function renderSettings() {
         })
         .join("") || '<p class="muted">暂无登录账号。</p>';
   }
-  if ($("#householdAdminList")) {
-    $("#householdAdminList").innerHTML =
-      state.householdAdmins
-        .map(
-          (item) => `
-            <div class="list-item managed-item">
-              <span>${item.household_name}<small>${item.display_name} · ${item.username}</small></span>
-              <strong>${roleText(item.role)}</strong>
-              <button class="danger-btn" data-delete-household="${item.household_id}">删除</button>
-            </div>
-          `,
-        )
-        .join("") || '<p class="muted">暂无已创建的家庭管理员账号。</p>';
-  }
 }
 
 function renderRecurring() {
@@ -288,6 +314,89 @@ function renderAssets() {
     state.assets
       .map((item) => `<div class="list-item"><span>${item.name}<small>${item.note || ""}</small></span><strong class="${item.type === "liability" ? "expense" : "income"}">${money.format(item.amount)}</strong></div>`)
       .join("") || '<p class="muted">暂无资产负债条目。</p>';
+}
+
+function findNameMatch(items, text, aliases = {}) {
+  const direct = [...items].sort((a, b) => b.name.length - a.name.length).find((item) => text.includes(item.name));
+  if (direct) return { item: direct, token: direct.name };
+  for (const [keyword, names] of Object.entries(aliases)) {
+    if (!text.includes(keyword)) continue;
+    const candidates = Array.isArray(names) ? names : [names];
+    const item = items.find((entry) => candidates.some((name) => entry.name.includes(name)));
+    if (item) return { item, token: keyword };
+  }
+  return { item: null, token: "" };
+}
+
+function inferCategory(text, type) {
+  const categories = typedCategories(type);
+  const direct = findNameMatch(categories, text);
+  if (direct.item) return direct.item;
+  const keywordGroups = [
+    { names: ["餐饮"], keywords: ["早饭", "早餐", "午饭", "午餐", "晚饭", "晚餐", "吃饭", "饭", "外卖", "奶茶", "咖啡", "水果", "买菜", "餐", "面包", "包子", "火锅", "烧烤", "食堂"] },
+    { names: ["通勤", "交通"], keywords: ["地铁", "公交", "通勤", "上班路", "下班路", "共享单车", "单车", "骑车", "交通卡"] },
+    { names: ["交通", "通勤"], keywords: ["打车", "滴滴", "出租", "停车", "油费", "加油", "高速", "火车", "高铁", "机票", "车票"] },
+    { names: ["运动", "娱乐"], keywords: ["打球", "篮球", "足球", "羽毛球", "乒乓球", "网球", "游泳", "健身", "跑步", "瑜伽", "运动", "球馆", "健身房"] },
+    { names: ["住房"], keywords: ["房租", "物业", "水费", "电费", "燃气", "宽带", "网费", "取暖", "维修"] },
+    { names: ["购物"], keywords: ["购物", "淘宝", "京东", "拼多多", "超市", "衣服", "鞋", "日用品", "家电", "数码", "快递"] },
+    { names: ["医疗"], keywords: ["医院", "药", "挂号", "体检", "门诊", "牙", "医疗", "医保"] },
+    { names: ["教育"], keywords: ["学费", "课程", "培训", "书", "考试", "文具", "教育"] },
+    { names: ["娱乐"], keywords: ["电影", "游戏", "旅游", "娱乐", "会员", "演唱会", "KTV", "ktv", "剧本杀"] },
+    { names: ["工资"], keywords: ["工资", "薪水", "薪资", "奖金", "绩效"] },
+    { names: ["理财"], keywords: ["理财", "利息", "分红", "基金", "股票", "收益"] },
+  ];
+  for (const group of keywordGroups) {
+    const { names, keywords } = group;
+    if (!keywords.some((keyword) => text.includes(keyword))) continue;
+    const matched = names
+      .map((name) => categories.find((category) => category.name.includes(name) || name.includes(category.name)))
+      .find(Boolean);
+    if (matched) return matched;
+  }
+  return categories[0] || null;
+}
+
+function parseTextEntry(rawText) {
+  const original = rawText.trim();
+  const amountMatches = [...original.matchAll(/(?:￥|¥)?\s*(\d+(?:\.\d{1,2})?)\s*(?:元|块|rmb|RMB)?/g)];
+  if (!amountMatches.length) {
+    throw new Error("missing amount");
+  }
+  const amountMatch = amountMatches[amountMatches.length - 1];
+  const amount = Number(amountMatch[1]);
+  if (!amount || amount <= 0) {
+    throw new Error("missing amount");
+  }
+  const type = /(工资|薪水|薪资|奖金|收入|利息|分红)/.test(original) ? "income" : "expense";
+  const accountMatch = findNameMatch(state.accounts, original, {
+    支付宝: ["支付宝"],
+    微信: ["微信"],
+    现金: ["现金"],
+    银行卡: ["银行卡", "储蓄卡"],
+    信用卡: ["信用卡"],
+  });
+  const account = accountMatch.item || state.accounts[0];
+  const category = inferCategory(original, type);
+  const member = state.members.find((item) => item.id === state.currentUser?.member_id) || state.members[0];
+  if (!account || !category || !member) {
+    throw new Error("missing base data");
+  }
+  let note = original
+    .replace(amountMatch[0], "")
+    .replace(accountMatch.token, "")
+    .replace(category.name, "")
+    .trim();
+  if (!note) note = original.replace(amountMatch[0], "").trim() || category.name;
+  return {
+    type,
+    amount,
+    category_id: category.id,
+    account_id: account.id,
+    member_id: member.id,
+    occurred_on: today.toISOString().slice(0, 10),
+    note,
+    preview: `${account.name} · ${category.name} · ${note} · ${money.format(amount)}`,
+  };
 }
 
 async function loadTransactions(params = "") {
@@ -326,9 +435,13 @@ function bindForm(selector, path, success, payloadMapper = (data) => data) {
         ? "用户名已存在"
         : error.message.includes("password too short")
           ? "密码至少需要 6 位"
-          : error.message.includes("forbidden")
-            ? "当前账号没有权限执行此操作"
-            : "保存失败，请检查输入";
+          : error.message.includes("display name must be chinese")
+            ? "用户名称必须是 2-12 个中文字符"
+            : error.message.includes("username must be english")
+              ? "登录用户名只能使用 3-24 个英文字母"
+              : error.message.includes("forbidden")
+                ? "当前账号没有权限执行此操作"
+                : "保存失败，请检查输入";
       toast(message);
     }
   });
@@ -346,9 +459,34 @@ bindForm("#accountForm", "/api/accounts", "账户已添加");
 bindForm("#categoryForm", "/api/categories", "分类已添加");
 bindForm("#memberForm", "/api/members", "成员已添加");
 bindForm("#memberAccountForm", "/api/member-accounts", "成员登录账号已创建");
-bindForm("#householdForm", "/api/households", "新家庭已创建，可用新账号登录");
 bindForm("#recurringForm", "/api/recurring", "周期账单已添加");
 bindForm("#assetForm", "/api/assets", "资产负债条目已添加");
+
+if ($("#textEntryForm")) {
+  $("#textEntryForm").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const rawText = new FormData(form).get("text") || "";
+    try {
+      const parsed = parseTextEntry(String(rawText));
+      $("#textEntryHint").textContent = `已识别：${parsed.preview}`;
+      await api("/api/transactions", {
+        method: "POST",
+        body: JSON.stringify(parsed),
+      });
+      form.reset();
+      toast("文字记账已保存");
+      await load();
+    } catch (error) {
+      const message = error.message.includes("missing amount")
+        ? "没有识别到金额，例如：支付宝早饭4.5"
+        : error.message.includes("missing base data")
+          ? "需要先创建账户、分类和成员"
+          : "文字记账失败，请换一种写法";
+      toast(message);
+    }
+  });
+}
 
 async function deleteResource(path, success) {
   try {
@@ -377,10 +515,6 @@ document.addEventListener("click", async (event) => {
   if (userButton) {
     await deleteResource(`/api/member-accounts/${userButton.dataset.deleteUser}`, "账号已删除");
     return;
-  }
-  const householdButton = event.target.closest("[data-delete-household]");
-  if (householdButton) {
-    await deleteResource(`/api/households/${householdButton.dataset.deleteHousehold}`, "家庭管理员账号已删除");
   }
 });
 

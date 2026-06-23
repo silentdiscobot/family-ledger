@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import io
 import random
+import re
 import sqlite3
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -16,6 +17,9 @@ DB_PATH = BASE_DIR / "family_ledger.db"
 
 app = Flask(__name__)
 app.secret_key = "family-ledger-local-dev-secret"
+IDLE_TIMEOUT_SECONDS = 30 * 60
+CHINESE_NAME_RE = re.compile(r"^[\u4e00-\u9fff]{2,12}$")
+ENGLISH_USERNAME_RE = re.compile(r"^[A-Za-z]{3,24}$")
 
 
 def get_db() -> sqlite3.Connection:
@@ -30,6 +34,14 @@ def close_db(_: object) -> None:
     db = g.pop("db", None)
     if db is not None:
         db.close()
+
+
+@app.after_request
+def add_no_store_headers(response: Response) -> Response:
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 
 def rows(sql: str, params: tuple = ()) -> list[dict]:
@@ -157,6 +169,7 @@ def init_db() -> None:
         seed(db)
     else:
         seed_new_modules(db)
+    ensure_common_categories(db)
     ensure_default_household(db)
     seed_default_user(db)
     db.commit()
@@ -188,6 +201,25 @@ def ensure_default_household(db: sqlite3.Connection) -> None:
         household_id = household["id"]
     for table in ("accounts", "categories", "members", "transactions", "budgets", "recurring_transactions", "assets", "users"):
         db.execute(f"UPDATE {table} SET household_id = ? WHERE household_id IS NULL", (household_id,))
+
+
+def ensure_common_categories(db: sqlite3.Connection) -> None:
+    common = [
+        ("运动", "expense", "#22c55e"),
+        ("通勤", "expense", "#06b6d4"),
+    ]
+    households = db.execute("SELECT id FROM households").fetchall()
+    for household in households:
+        for name, category_type, color in common:
+            exists = db.execute(
+                "SELECT id FROM categories WHERE household_id = ? AND name = ? AND type = ?",
+                (household["id"], name, category_type),
+            ).fetchone()
+            if not exists:
+                db.execute(
+                    "INSERT INTO categories (household_id, name, type, color) VALUES (?, ?, ?, ?)",
+                    (household["id"], name, category_type, color),
+                )
 
 
 def seed(db: sqlite3.Connection) -> None:
@@ -320,11 +352,13 @@ def seed_household_defaults(db: sqlite3.Connection, household_id: int, member_na
         "INSERT INTO categories (household_id, name, type, color) VALUES (?, ?, ?, ?)",
         [
             (household_id, "餐饮", "expense", "#38bdf8"),
+            (household_id, "通勤", "expense", "#06b6d4"),
             (household_id, "交通", "expense", "#5eead4"),
             (household_id, "住房", "expense", "#818cf8"),
             (household_id, "购物", "expense", "#f472b6"),
             (household_id, "医疗", "expense", "#fb7185"),
             (household_id, "教育", "expense", "#facc15"),
+            (household_id, "运动", "expense", "#22c55e"),
             (household_id, "娱乐", "expense", "#a78bfa"),
             (household_id, "工资", "income", "#22c55e"),
             (household_id, "理财", "income", "#14b8a6"),
@@ -363,16 +397,12 @@ def forbidden(message: str = "forbidden"):
     return jsonify({"error": message}), 403
 
 
-def is_open_endpoint() -> bool:
-    return request.endpoint in {"login", "api_login", "captcha", "static"}
+def valid_chinese_name(value: str) -> bool:
+    return bool(CHINESE_NAME_RE.fullmatch(value or ""))
 
 
-def is_mobile_request() -> bool:
-    if request.args.get("desktop") == "1":
-        return False
-    user_agent = request.headers.get("User-Agent", "").lower()
-    mobile_marks = ("iphone", "android", "mobile", "micromessenger", "ipad", "ipod")
-    return any(mark in user_agent for mark in mobile_marks)
+def valid_english_username(value: str) -> bool:
+    return bool(ENGLISH_USERNAME_RE.fullmatch(value or ""))
 
 
 def set_login_session(user: dict) -> None:
@@ -383,6 +413,38 @@ def set_login_session(user: dict) -> None:
     session["member_id"] = user["member_id"]
     session["household_id"] = user["household_id"] or 1
     session["role"] = user["role"]
+    session["last_active_at"] = datetime.now().isoformat(timespec="seconds")
+
+
+def session_expired() -> bool:
+    last_active_at = session.get("last_active_at")
+    if not last_active_at:
+        return False
+    try:
+        last_active = datetime.fromisoformat(last_active_at)
+    except ValueError:
+        return True
+    return datetime.now() - last_active > timedelta(seconds=IDLE_TIMEOUT_SECONDS)
+
+
+def session_timeout_response() -> Response:
+    session.clear()
+    if request.path.startswith("/api/"):
+        return jsonify({"error": "session expired"}), 401
+    target = "adminlogin" if request.path.startswith("/admin") else "login"
+    return redirect(url_for(target, next=request.full_path if request.query_string else request.path))
+
+
+def is_open_endpoint() -> bool:
+    return request.endpoint in {"login", "adminlogin", "api_login", "captcha", "static"}
+
+
+def is_mobile_request() -> bool:
+    if request.args.get("desktop") == "1":
+        return False
+    user_agent = request.headers.get("User-Agent", "").lower()
+    mobile_marks = ("iphone", "android", "mobile", "micromessenger", "ipad", "ipod")
+    return any(mark in user_agent for mark in mobile_marks)
 
 
 @app.before_request
@@ -390,6 +452,8 @@ def require_login() -> Response | None:
     if is_open_endpoint():
         return None
     if session.get("user_id"):
+        if session_expired():
+            return session_timeout_response()
         if "member_id" not in session or "household_id" not in session or "role" not in session:
             user = one("SELECT id, username, display_name, member_id, household_id, role FROM users WHERE id = ?", (session["user_id"],))
             if user:
@@ -398,10 +462,12 @@ def require_login() -> Response | None:
                 session["member_id"] = user["member_id"]
                 session["household_id"] = user["household_id"] or 1
                 session["role"] = user["role"]
+        session["last_active_at"] = datetime.now().isoformat(timespec="seconds")
         return None
     if request.path.startswith("/api/"):
         return jsonify({"error": "unauthorized"}), 401
-    return redirect(url_for("login", next=request.full_path if request.query_string else request.path))
+    target = "adminlogin" if request.path.startswith("/admin") else "login"
+    return redirect(url_for(target, next=request.full_path if request.query_string else request.path))
 
 
 def make_captcha_code() -> str:
@@ -450,19 +516,39 @@ def login():
             error = "验证码不正确，请重新输入。"
         elif not user or not check_password_hash(user["password_hash"], password):
             error = "用户名或密码不正确。"
+        elif user["role"] == "super_admin":
+            return redirect(url_for("adminlogin"))
         else:
-            session.clear()
-            session["user_id"] = user["id"]
-            session["username"] = user["username"]
-            session["display_name"] = user["display_name"]
-            session["member_id"] = user["member_id"]
-            session["household_id"] = user["household_id"] or 1
-            session["role"] = user["role"]
+            set_login_session(user)
             return redirect(request.args.get("next") or url_for("index"))
         session["captcha_code"] = make_captcha_code()
     elif "captcha_code" not in session:
         session["captcha_code"] = make_captcha_code()
     return render_template("login.html", error=error)
+
+
+@app.route("/adminlogin", methods=["GET", "POST"])
+def adminlogin():
+    error = ""
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        captcha = request.form.get("captcha", "").strip().upper()
+        expected = session.get("captcha_code", "")
+        user = one("SELECT * FROM users WHERE username = ?", (username,))
+        if not expected or captcha != expected:
+            error = "验证码不正确，请重新输入。"
+        elif not user or not check_password_hash(user["password_hash"], password):
+            error = "用户名或密码不正确。"
+        elif user["role"] != "super_admin":
+            error = "该入口仅支持超级管理员登录。"
+        else:
+            set_login_session(user)
+            return redirect(request.args.get("next") or url_for("admin"))
+        session["captcha_code"] = make_captcha_code()
+    elif "captcha_code" not in session:
+        session["captcha_code"] = make_captcha_code()
+    return render_template("admin_login.html", error=error)
 
 
 @app.route("/captcha.svg")
@@ -519,10 +605,18 @@ def api_logout():
     return jsonify({"ok": True})
 
 
+@app.route("/adminlogout", methods=["POST"])
+def adminlogout():
+    session.clear()
+    return redirect(url_for("adminlogin"))
+
+
 @app.route("/")
 @app.route("/<page>")
 def index(page: str = "dashboard"):
-    allowed = {"dashboard", "entry", "records", "budget", "accounts", "categories", "members", "create-household-account", "settings", "recurring", "assets", "import-export"}
+    if is_super_admin():
+        return redirect(url_for("admin"))
+    allowed = {"dashboard", "entry", "records", "budget", "accounts", "categories", "members", "settings", "recurring", "assets", "import-export"}
     if page == "settings":
         page = "categories"
     if page == "create-household-account" and not is_super_admin():
@@ -540,6 +634,13 @@ def index(page: str = "dashboard"):
 @app.route("/mobile")
 def mobile():
     return render_template("mobile.html", username=session.get("display_name"))
+
+
+@app.route("/admin")
+def admin():
+    if not is_super_admin():
+        return redirect(url_for("login"))
+    return render_template("admin.html", username=session.get("display_name"))
 
 
 @app.route("/api/bootstrap")
@@ -595,6 +696,31 @@ def bootstrap():
                 (household_id,),
             ),
             "assets": rows("SELECT * FROM assets WHERE household_id = ? ORDER BY type, id", (household_id,)),
+        }
+    )
+
+
+@app.route("/api/admin/bootstrap")
+def admin_bootstrap():
+    if not is_super_admin():
+        return forbidden()
+    return jsonify(
+        {
+            "currentUser": {
+                "id": session.get("user_id"),
+                "username": session.get("username"),
+                "display_name": session.get("display_name"),
+                "role": current_role(),
+            },
+            "householdAdmins": rows(
+                """
+                SELECT u.id, u.username, u.display_name, u.role, u.household_id, h.name AS household_name, h.created_at
+                FROM users u
+                JOIN households h ON h.id = u.household_id
+                WHERE u.role = 'household_admin'
+                ORDER BY h.id DESC
+                """
+            ),
         }
     )
 
@@ -799,9 +925,14 @@ def member_accounts():
     data = request.get_json(force=True)
     household_id = current_household_id()
     username = data["username"].strip()
+    display_name = (data.get("display_name") or "").strip()
     password = data["password"]
     member_id = int(data["member_id"])
     role = data.get("role") or "viewer"
+    if not valid_chinese_name(display_name):
+        return jsonify({"error": "display name must be chinese"}), 400
+    if not valid_english_username(username):
+        return jsonify({"error": "username must be english"}), 400
     if role not in {"household_admin", "editor", "viewer"}:
         return jsonify({"error": "invalid role"}), 400
     member = one("SELECT * FROM members WHERE id = ? AND household_id = ?", (member_id, household_id))
@@ -809,11 +940,13 @@ def member_accounts():
         return jsonify({"error": "member not found"}), 404
     if len(password) < 6:
         return jsonify({"error": "password too short"}), 400
+    if one("SELECT id FROM users WHERE username = ?", (username,)):
+        return jsonify({"error": "username exists"}), 409
     db = get_db()
     try:
         cur = db.execute(
             "INSERT INTO users (household_id, username, password_hash, display_name, member_id, role, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (household_id, username, generate_password_hash(password), member["name"], member_id, role, datetime.now().isoformat(timespec="seconds")),
+            (household_id, username, generate_password_hash(password), display_name, member_id, role, datetime.now().isoformat(timespec="seconds")),
         )
     except sqlite3.IntegrityError:
         return jsonify({"error": "username exists"}), 409
@@ -845,10 +978,17 @@ def households():
     data = request.get_json(force=True)
     household_name = data["name"].strip()
     member_name = (data.get("member_name") or "我").strip()
+    display_name = (data.get("display_name") or "").strip()
     username = data["username"].strip()
     password = data["password"]
+    if not valid_chinese_name(display_name):
+        return jsonify({"error": "display name must be chinese"}), 400
+    if not valid_english_username(username):
+        return jsonify({"error": "username must be english"}), 400
     if len(password) < 6:
         return jsonify({"error": "password too short"}), 400
+    if one("SELECT id FROM users WHERE username = ?", (username,)):
+        return jsonify({"error": "username exists"}), 409
     db = get_db()
     try:
         household_cur = db.execute(
@@ -859,7 +999,7 @@ def households():
         member_id = seed_household_defaults(db, household_id, member_name)
         user_cur = db.execute(
             "INSERT INTO users (household_id, username, password_hash, display_name, member_id, role, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (household_id, username, generate_password_hash(password), member_name, member_id, "household_admin", datetime.now().isoformat(timespec="seconds")),
+            (household_id, username, generate_password_hash(password), display_name, member_id, "household_admin", datetime.now().isoformat(timespec="seconds")),
         )
     except sqlite3.IntegrityError:
         db.rollback()

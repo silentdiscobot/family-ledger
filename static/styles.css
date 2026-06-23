@@ -125,14 +125,27 @@ nav a:hover {
 }
 
 .sidebar-foot {
-  margin-top: 42px;
-  padding: 15px;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  margin-top: 72px;
+  padding: 18px 15px;
   border-radius: 18px;
+  text-align: center;
   background: rgba(255, 255, 255, 0.48);
 }
 
+.sidebar-foot strong {
+  width: 100%;
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
 .logout-form {
-  margin: 12px 0 14px;
+  width: 100%;
+  margin: 10px 0 0;
 }
 
 .logout-form button {
@@ -259,6 +272,12 @@ textarea:focus {
   gap: 16px;
 }
 
+.dashboard-split {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(260px, 0.92fr) minmax(260px, 1fr);
+  gap: 16px;
+}
+
 .management-stack {
   display: grid;
   gap: 16px;
@@ -293,6 +312,31 @@ textarea:focus {
 .entry-form {
   display: grid;
   gap: 14px;
+}
+
+.text-entry-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 132px;
+  align-items: end;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.42);
+}
+
+.text-entry-form label {
+  min-width: 0;
+}
+
+.text-entry-form textarea {
+  min-height: 68px;
+}
+
+.text-entry-form .muted {
+  grid-column: 1 / -1;
+  margin: -4px 0 0;
 }
 
 .segmented {
@@ -361,6 +405,28 @@ textarea:focus {
 
 .inline-form.roomy {
   grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+}
+
+.account-create-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.account-create-form label:first-child,
+.account-create-form button {
+  grid-column: 1 / -1;
+}
+
+.account-create-form button {
+  min-height: 44px;
+  border: 0;
+  border-radius: 14px;
+  color: white;
+  font-weight: 800;
+  background: linear-gradient(135deg, #1ba9ec, #55dcc8);
+  box-shadow: 0 14px 32px rgba(56, 189, 248, 0.3);
 }
 
 .filter-grid {
@@ -432,6 +498,59 @@ textarea:focus {
 .bar-fill {
   height: 100%;
   border-radius: inherit;
+}
+
+.expense-share-panel {
+  display: grid;
+  justify-items: center;
+}
+
+.expense-share-panel .panel-head {
+  justify-self: stretch;
+  width: 100%;
+}
+
+.expense-pie {
+  display: grid;
+  place-items: center;
+  width: min(220px, 100%);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.84), 0 20px 44px rgba(56, 189, 248, 0.18);
+}
+
+.expense-pie span {
+  display: grid;
+  place-items: center;
+  width: 104px;
+  height: 104px;
+  border-radius: 50%;
+  color: var(--text);
+  font-size: 26px;
+  font-weight: 900;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 10px 28px rgba(31, 112, 168, 0.14);
+}
+
+.pie-legend {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  margin-top: 18px;
+}
+
+.legend-item {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.legend-item i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
 }
 
 .account-item,
@@ -603,6 +722,21 @@ th:last-child {
   gap: 14px;
 }
 
+.text-link {
+  justify-self: center;
+  color: var(--blue-dark);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.text-link:hover {
+  text-decoration: underline;
+}
+
+.admin-shell .content-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .alert {
   margin-bottom: 14px;
   padding: 12px 14px;
@@ -654,6 +788,10 @@ th:last-child {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .dashboard-split {
+    grid-template-columns: 1fr;
+  }
+
   .filter-grid,
   .inline-form.roomy,
   .management-grid {
@@ -668,7 +806,8 @@ th:last-child {
 
   .topbar,
   .panel-head,
-  .budget-ring {
+  .budget-ring,
+  .text-entry-form {
     align-items: stretch;
     flex-direction: column;
   }
@@ -684,13 +823,19 @@ th:last-child {
   nav,
   .metrics-grid,
   .content-grid,
+  .dashboard-split,
   .form-row,
   .inline-form,
   .inline-form.roomy,
+  .account-create-form,
   .filter-grid,
   .action-item,
   .managed-item,
   .management-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .text-entry-form {
     grid-template-columns: 1fr;
   }
 

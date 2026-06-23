@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>登录 - 家庭记账</title>
+    <title>超级管理员登录 - 家庭记账</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
   </head>
   <body class="login-body">
@@ -12,20 +12,20 @@
         <div class="brand login-brand">
           <div class="brand-mark">¥</div>
           <div>
-            <strong>家庭记账</strong>
-            <span>Family Ledger</span>
+            <strong>超级管理员</strong>
+            <span>Family Ledger Admin</span>
           </div>
         </div>
         <div class="login-copy">
-          <p class="eyebrow">Secure Access</p>
-          <h1>登录家庭财务操作台</h1>
+          <p class="eyebrow">Admin Access</p>
+          <h1>登录超级管理员后台</h1>
         </div>
         {% if error %}
           <div class="alert">{{ error }}</div>
         {% endif %}
         <form class="login-form" method="post">
-          <label>用户名<input name="username" autocomplete="username" required></label>
-          <label>密码<input name="password" type="password" autocomplete="current-password" required></label>
+          <label>管理员账号<input name="username" autocomplete="username" value="admin" required></label>
+          <label>密码<input name="password" type="password" autocomplete="current-password" placeholder="超级管理员密码" required></label>
           <label>验证码</label>
           <div class="captcha-row">
             <input name="captcha" autocomplete="off" placeholder="输入右侧验证码" required>
@@ -33,8 +33,7 @@
               <img id="captchaImage" src="{{ url_for('captcha') }}" alt="验证码">
             </button>
           </div>
-          <button class="primary-btn" type="submit">登录</button>
-          <a class="text-link" href="/adminlogin">超级管理员登录</a>
+          <button class="primary-btn" type="submit">进入管理员后台</button>
         </form>
       </section>
     </main>

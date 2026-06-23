@@ -27,12 +27,9 @@
           <a data-page="recurring" href="/recurring">周期账单</a>
           <a data-page="assets" href="/assets">资产负债</a>
           <a data-page="import-export" href="/import-export">导入导出</a>
-          {% if user_role == "super_admin" %}
-          <a data-page="create-household-account" href="/create-household-account">创建新家庭账号</a>
-          {% endif %}
         </nav>
         <div class="sidebar-foot">
-          <span>当前用户</span>
+          <span>用户名称</span>
           <strong>{{ username or "家庭用户" }}</strong>
           <form class="logout-form" method="post" action="/logout">
             <button type="submit">退出登录</button>
@@ -75,7 +72,7 @@
               <small>账户与资产合计</small>
             </article>
           </div>
-          <div class="content-grid">
+          <div class="dashboard-split">
             <article class="panel glass">
               <div class="panel-head">
                 <div>
@@ -84,6 +81,16 @@
                 </div>
               </div>
               <div id="categoryBars" class="bar-list"></div>
+            </article>
+            <article class="panel glass expense-share-panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Expense Share</p>
+                  <h2>支出比例</h2>
+                </div>
+              </div>
+              <div id="expensePie" class="expense-pie"><span>0%</span></div>
+              <div id="expenseLegend" class="pie-legend"></div>
             </article>
             <article class="panel glass">
               <div class="panel-head">
@@ -94,6 +101,8 @@
               </div>
               <div id="memberBars" class="bar-list"></div>
             </article>
+          </div>
+          <div class="content-grid">
             <article class="panel glass wide">
               <div class="panel-head">
                 <div>
@@ -118,6 +127,11 @@
                 <h2>10 秒记一笔</h2>
               </div>
             </div>
+            <form id="textEntryForm" class="text-entry-form">
+              <label>文字记账<textarea name="text" rows="2" placeholder="例如：支付宝早饭4.5、微信买菜32、工资8000"></textarea></label>
+              <button class="primary-btn" type="submit">识别并记录</button>
+              <p id="textEntryHint" class="muted">会自动识别金额、账户、分类和备注。</p>
+            </form>
             <form id="transactionForm" class="entry-form">
               <div class="segmented">
                 <label><input type="radio" name="type" value="expense" checked><span>支出</span></label>
@@ -317,15 +331,16 @@
                   <h2>创建成员账号</h2>
                 </div>
               </div>
-              <form id="memberAccountForm" class="inline-form roomy">
-                <select name="member_id" id="accountMemberSelect"></select>
-                <input name="username" placeholder="登录用户名" autocomplete="off" required>
-                <input name="password" type="password" placeholder="至少 6 位密码" autocomplete="new-password" required>
-                <select name="role">
-                  <option value="editor">可记账成员</option>
-                  <option value="viewer">只读成员</option>
-                  <option value="household_admin">家庭管理员</option>
-                </select>
+              <form id="memberAccountForm" class="account-create-form">
+                <label>关联成员<select name="member_id" id="accountMemberSelect"></select></label>
+                <label>用户名称<input name="display_name" placeholder="中文姓名" autocomplete="off" pattern="[\u4e00-\u9fff]{2,12}" required></label>
+                <label>登录用户名<input name="username" placeholder="英文字母，例如 yuan" autocomplete="off" pattern="[A-Za-z]{3,24}" required></label>
+                <label>登录密码<input name="password" type="password" placeholder="至少 6 位密码" autocomplete="new-password" required></label>
+                <label>账号权限<select name="role">
+                    <option value="editor">可记账成员</option>
+                    <option value="viewer">只读成员</option>
+                    <option value="household_admin">家庭管理员</option>
+                  </select></label>
                 <button type="submit">创建账号</button>
               </form>
             </article>
@@ -339,27 +354,6 @@
               <div id="userList" class="simple-list managed-list"></div>
             </article>
             </div>
-          </div>
-        </section>
-
-        <section class="page" data-view="create-household-account">
-          <div class="content-grid">
-            <article class="panel glass wide">
-              <div class="panel-head">
-                <div>
-                  <p class="eyebrow">Households</p>
-                  <h2>创建新家庭账号</h2>
-                </div>
-              </div>
-              <form id="householdForm" class="inline-form roomy">
-                <input name="name" placeholder="家庭名称" required>
-                <input name="member_name" placeholder="家庭管理员成员名" required>
-                <input name="username" placeholder="家庭管理员登录用户名" autocomplete="off" required>
-                <input name="password" type="password" placeholder="至少 6 位密码" autocomplete="new-password" required>
-                <button type="submit">创建家庭管理员账号</button>
-              </form>
-              <div id="householdAdminList" class="simple-list managed-list section-list"></div>
-            </article>
           </div>
         </section>
 
